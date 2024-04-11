@@ -25,10 +25,10 @@ def get_hamilt_op(N, lambd):
 
 def main():
     backend = Aer.get_backend("qasm_simulator")
-    num_shots = 1024
+    num_shots = 4096
 
     N = 3 # no. of system qubits
-    M = 10 # no. of time evolution steps
+    M = 1 # no. of time evolution steps
     n_anc = 2 * M # no. of needed ancillary qubits
 
     anc_idxs = list(range(n_anc))
@@ -50,7 +50,7 @@ def main():
     qc.initialize([const] * (2 ** N), sys_idxs)
 
     H = get_hamilt_op(N, 0.)
-    t = 2
+    t = 4
 
     for i in range(2 * M - 1, 0, -2): 
         """ Start from the last couple of qubits (most significative ones)
@@ -88,8 +88,13 @@ def main():
     for k, v in counts.items():
         pieces = list(k)
 
-        if np.all([pieces[i] == '0' for i in anc_idxs]): # check if the ancillary qubits are in the |0...0> state
-            k_new = ''.join(pieces[n_anc : n_anc + N])
+        """ Notice that in the following if statement the search for the state |0...0> of
+            the ancillary qubits is performed starting from the right, because according 
+            to Quiskit convenction, qubits with lower indexes are the less significant ones, 
+            so they will be written from right to left.
+        """
+        if np.all([pieces[i] == '0' for i in range(N, N + n_anc)]): # check if the ancillary qubits are in the |0...0> state
+            k_new = ''.join(pieces[:N])
             evo_state_dict[k_new] = v
 
     states = evo_state_dict.keys()
@@ -97,6 +102,7 @@ def main():
 
     print(counts)
     plt.bar(states, counts)
+    plt.xticks(rotation=90)
     plt.show()
 
 
