@@ -28,7 +28,7 @@ def main():
     num_shots = 4096
 
     N = 3 # no. of system qubits
-    M = 1 # no. of time evolution steps
+    M = 2 # no. of time evolution steps
     n_anc = 2 * M # no. of needed ancillary qubits
 
     anc_idxs = list(range(n_anc))
@@ -50,7 +50,7 @@ def main():
     qc.initialize([const] * (2 ** N), sys_idxs)
 
     H = get_hamilt_op(N, 0.)
-    t = 4
+    t = 1.5
 
     for i in range(2 * M - 1, 0, -2): 
         """ Start from the last couple of qubits (most significative ones)
@@ -103,6 +103,7 @@ def main():
     print(counts)
     plt.bar(states, counts)
     plt.xticks(rotation=90)
+    plt.title(f"N = {N}, M = {M}, t = {t}, num_shots = {num_shots}")
     plt.show()
 
 
