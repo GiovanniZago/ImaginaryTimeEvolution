@@ -6,6 +6,8 @@ from qiskit_aer import AerSimulator
 from qiskit.visualization import plot_histogram
 import matplotlib.pyplot as plt
 
+from time import monotonic
+
 def get_hamilt_op(N, lambd):
     hlist = []
     coeffs = []
@@ -24,13 +26,15 @@ def get_hamilt_op(N, lambd):
     return SparsePauliOp(hlist, coeffs=coeffs)
 
 def main():
-    N = 2 # no. of system qubits
-    M = 3 # no. of time evolution steps
+    N = 3 # no. of system qubits
+    M = 2 # no. of time evolution steps
     n_anc = 2 * M # no. of needed ancillary qubits
+    t = 2
 
+    H = get_hamilt_op(N, 0.)
+    
     anc_idxs = list(range(n_anc))
     sys_idxs = list(range(n_anc, n_anc + N))
-
     alpha = 2 * np.arctan(np.sqrt(0.5))
     beta = 0.5 * np.pi
     gamma = -1.5 * np.pi
@@ -45,9 +49,6 @@ def main():
     """
     const = np.sqrt(1 / (2 ** N))
     qc.initialize([const] * (2 ** N), sys_idxs)
-
-    H = get_hamilt_op(N, 0.)
-    t = 2
 
     for i in range(2 * M - 1, 0, -2): 
         """ Start from the last couple of qubits (most significative ones)
@@ -80,9 +81,15 @@ def main():
     aer_sim = AerSimulator(method="statevector")
     num_shots = 1_000_000
 
+    t_i = monotonic()
+
     qc_tp = transpile(qc, aer_sim)
     aer_job = aer_sim.run(qc_tp, shots=num_shots)
     counts = aer_job.result().get_counts()
+
+    t_f = monotonic()
+
+    print(f"Simulation time: {(t_f - t_i):.2f} s")
 
     evo_state_dict = {}
 
@@ -96,8 +103,6 @@ def main():
             k_new = k[:N]
             evo_state_dict[k_new] = v
 
-    plot_histogram(evo_state_dict)
-
     valid_counts = sum(evo_state_dict.values())
     print(f"Number of valid counts: {valid_counts}")
     print(f"Number of shots performed: {num_shots}")
@@ -105,9 +110,14 @@ def main():
     eff = (valid_counts / num_shots) * 100 # calculate efficiency
     print(f"Efficiency: {eff:.3f} %")
 
-    plt.title(f"N = {N}, M = {M}, t = {t}, num_shots = {num_shots}, efficiency = {eff:.3f} %")
-    plt.show()
+    # print final state probabilities and generate plot
+    evo_state_dict.update((k, v / valid_counts) for k, v in evo_state_dict.items())
+    for k, v in evo_state_dict.items():
+        print(f"{k[::-1]}: {v:.4f}")
 
+    plot_histogram(evo_state_dict)
+    plt.title(f"N = {N}, M = {M}, t = {t}, num_shots = {num_shots:,}, efficiency = {eff:.3f} %")
+    plt.show()
 
 if __name__ == "__main__":
     main()
