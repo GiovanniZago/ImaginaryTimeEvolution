@@ -1,8 +1,8 @@
 import numpy as np
-from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister, execute
+from qiskit import QuantumCircuit, QuantumRegister, transpile
 from qiskit.quantum_info import SparsePauliOp
-from qiskit.circuit.library import PauliEvolutionGate, HGate
-from qiskit_aer import Aer
+from qiskit.circuit.library import PauliEvolutionGate
+from qiskit_aer import AerSimulator
 from qiskit.visualization import plot_histogram
 import matplotlib.pyplot as plt
 
@@ -24,11 +24,8 @@ def get_hamilt_op(N, lambd):
     return SparsePauliOp(hlist, coeffs=coeffs)
 
 def main():
-    backend = Aer.get_backend("qasm_simulator")
-    num_shots = 4096
-
-    N = 3 # no. of system qubits
-    M = 2 # no. of time evolution steps
+    N = 2 # no. of system qubits
+    M = 3 # no. of time evolution steps
     n_anc = 2 * M # no. of needed ancillary qubits
 
     anc_idxs = list(range(n_anc))
@@ -50,7 +47,7 @@ def main():
     qc.initialize([const] * (2 ** N), sys_idxs)
 
     H = get_hamilt_op(N, 0.)
-    t = 1.5
+    t = 2
 
     for i in range(2 * M - 1, 0, -2): 
         """ Start from the last couple of qubits (most significative ones)
@@ -80,30 +77,35 @@ def main():
     """
     qc.measure_all()
 
-    results = execute(qc, backend=backend, num_shots=num_shots)
-    counts = results.result().get_counts()
+    aer_sim = AerSimulator(method="statevector")
+    num_shots = 1_000_000
+
+    qc_tp = transpile(qc, aer_sim)
+    aer_job = aer_sim.run(qc_tp, shots=num_shots)
+    counts = aer_job.result().get_counts()
 
     evo_state_dict = {}
 
     for k, v in counts.items():
-        pieces = list(k)
-
         """ Notice that in the following if statement the search for the state |0...0> of
             the ancillary qubits is performed starting from the right, because according 
             to Quiskit convenction, qubits with lower indexes are the less significant ones, 
             so they will be written from right to left.
         """
-        if np.all([pieces[i] == '0' for i in range(N, N + n_anc)]): # check if the ancillary qubits are in the |0...0> state
-            k_new = ''.join(pieces[:N])
+        if k[-n_anc:] == '0' * n_anc: # check if the ancillary qubits are in the |0...0> state
+            k_new = k[:N]
             evo_state_dict[k_new] = v
 
-    states = evo_state_dict.keys()
-    counts = evo_state_dict.values()
+    plot_histogram(evo_state_dict)
 
-    print(counts)
-    plt.bar(states, counts)
-    plt.xticks(rotation=90)
-    plt.title(f"N = {N}, M = {M}, t = {t}, num_shots = {num_shots}")
+    valid_counts = sum(evo_state_dict.values())
+    print(f"Number of valid counts: {valid_counts}")
+    print(f"Number of shots performed: {num_shots}")
+
+    eff = (valid_counts / num_shots) * 100 # calculate efficiency
+    print(f"Efficiency: {eff:.3f} %")
+
+    plt.title(f"N = {N}, M = {M}, t = {t}, num_shots = {num_shots}, efficiency = {eff:.3f} %")
     plt.show()
 
 
