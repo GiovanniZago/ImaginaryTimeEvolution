@@ -35,12 +35,16 @@ def main():
     np.set_printoptions(precision=5)
 
     N = 3
-    M = 2
-    t = 2
+    M = 4
+    t = 1
 
     # setup Hamiltonian
-    lam = 0
+    lam = 0.5
     ham = get_hamilt_op(N, lam).to_matrix()
+
+    # print general info
+    print("Matrix simulation")
+    print(f"N = {N}, M = {M}, t = {t}, lambda = {lam}")
 
     # setup time evolution operator
     evop1 = expm(ham * t/M * 1j)
@@ -63,8 +67,6 @@ def main():
     print("The final state is ", cur_state)
     print("The final probability densities are")
     print_state_probs(cur_state)
-
-    
 
 if __name__ == "__main__":
     main()
