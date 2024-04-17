@@ -34,8 +34,8 @@ def print_state_probs(coeff):
 def main():
     np.set_printoptions(precision=5)
 
-    N = 3
-    M = 4
+    N = 2
+    M = 1
     t = 1
 
     # setup Hamiltonian

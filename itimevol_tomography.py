@@ -1,11 +1,11 @@
 import numpy as np
-import matplotlib.pyplot as plt
-from qiskit import QuantumCircuit, QuantumRegister, transpile
-from qiskit.quantum_info import SparsePauliOp
+from qiskit import QuantumCircuit, QuantumRegister
+from qiskit.quantum_info import SparsePauliOp, partial_trace
 from qiskit.circuit.library import PauliEvolutionGate
 from qiskit.synthesis.evolution import LieTrotter
-from qiskit_aer import AerSimulator, Aer
-from qiskit.visualization import plot_histogram
+from qiskit_aer import Aer
+from qiskit_experiments.library import StateTomography
+from qiskit.visualization import array_to_latex
 
 from time import monotonic
 
@@ -155,84 +155,23 @@ def main():
 
     t_i = monotonic()
 
-    # aer_sim = AerSimulator(method='density_matrix', device=device)
-    if device == "GPU":
-        device_str = "_" + device.lower()
-    else:
-        device_str = ""
-
-    aer_sim = Aer.get_backend('aer_simulator_density_matrix' + f"{device_str}")
-    qc_tp   = transpile(qc, aer_sim)
-    aer_job = aer_sim.run(qc_tp, shots=num_shots)
-    counts  = aer_job.result().get_counts()
+    qc_tom = StateTomography(qc)
+    aer_bke = Aer.get_backend('aer_simulator_density_matrix_gpu')
+    qc_job = qc_tom.run(backend=aer_bke, num_shots=num_shots, seed_simulation=100).block_for_results()
 
     t_f = monotonic()
 
     print(f"Simulation time: {(t_f - t_i):.2f} s")
 
+    # get circuit total density matrix
+    final_state = qc_job.analysis_results("state")
+    final_dmatrix = final_state.value
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-    """ 
-    =================================================================================
-    ============================= State selection ===================================
-    ============================= and run stats   ===================================
-    =================================================================================
-    """
-    evo_state_dict = {}
-    for k, v in counts.items():
-        """ Notice that in the following if statement the search for the state |0...0> of
-            the ancillary qubits is performed starting from the right, because according 
-            to Quiskit convenction, qubits with lower indexes are the less significant ones, 
-            so they will be written from right to left.
-        """
-        if k[-n_anc:] == '0' * n_anc: # check if the ancillary qubits are in the |0...0> state
-            k_new = k[:N]
-            evo_state_dict[k_new] = v
-
-    # calculate and print measurement statistics
-    valid_counts = sum(evo_state_dict.values())
-    print(f"Number of valid counts: {valid_counts}")
-    print(f"Number of shots performed: {num_shots:,}")
-
-    eff = (valid_counts / num_shots) * 100 # calculate efficiency
-    print(f"Efficiency: {eff:.3f} %")
-
-    # print final state probabilities and generate plot
-    evo_state_dict.update((k, v / valid_counts) for k, v in evo_state_dict.items())
-    print("The final probability densities are")
-    for k, v in evo_state_dict.items():
-        print(f"{k[::-1]}: {v:.4f}")
-
-    if show_hist:
-        plot_histogram(evo_state_dict)
-        plt.title(f"N = {N}, M = {M}, t = {t}, num_shots = {num_shots:,}, efficiency = {eff:.3f} %")
-        plt.show()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    # trace out ancillary qubits and get system density matrix
+    sys_dmatrix = partial_trace(final_dmatrix, anc_idxs)
+    sys_dmatrix_dict = sys_dmatrix.to_dict()
+    for k, v in sys_dmatrix_dict.items():
+        print(f"{k}\t{v:.4f}")
 
 if __name__ == "__main__":
     main()
