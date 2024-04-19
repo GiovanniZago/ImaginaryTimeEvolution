@@ -1,6 +1,6 @@
 import numpy as np
 from qiskit import QuantumCircuit, QuantumRegister
-from qiskit.quantum_info import SparsePauliOp, partial_trace
+from qiskit.quantum_info import SparsePauliOp, Operator, DensityMatrix, partial_trace
 from qiskit.circuit.library import PauliEvolutionGate
 from qiskit.synthesis.evolution import LieTrotter
 from qiskit_aer import Aer
@@ -66,7 +66,7 @@ def main():
     t            = 1
     num_shots    = 1_000_000
     lam          = 0.5
-    reps         = 10
+    reps         = 1
     device       = "GPU"
 
     show_hist    = False
@@ -130,7 +130,7 @@ def main():
 
     # print general info
     print("Qiskit Simulation")
-    print(f"N = {N}, M = {M}, t = {t}, lambda = {lam}, reps = {reps}, num_shots = {num_shots}, device = {device}")
+    print(f"N = {N}, M = {M}, t = {t}, lambda = {lam}, reps = {reps}, num_shots = {num_shots:,}, device = {device}")
 
 
 
@@ -155,23 +155,43 @@ def main():
 
     t_i = monotonic()
 
-    qc_tom = StateTomography(qc)
-    aer_bke = Aer.get_backend('aer_simulator_density_matrix_gpu')
-    qc_job = qc_tom.run(backend=aer_bke, num_shots=num_shots, seed_simulation=100).block_for_results()
+    qc_tom  = StateTomography(qc)
+    if device == "GPU":
+        device_str = "_" + device.lower()
+    else:
+        device_str = ""
+
+    aer_bke = Aer.get_backend('aer_simulator_density_matrix' + f"{device_str}")
+    qc_job  = qc_tom.run(backend=aer_bke, num_shots=num_shots, seed_simulation=100).block_for_results()
 
     t_f = monotonic()
 
     print(f"Simulation time: {(t_f - t_i):.2f} s")
 
     # get circuit total density matrix
-    final_state = qc_job.analysis_results("state")
-    final_dmatrix = final_state.value
+    final_result   = qc_job.analysis_results("state")
+    final_dmatrix = final_result.value
 
-    # trace out ancillary qubits and get system density matrix
-    sys_dmatrix = partial_trace(final_dmatrix, anc_idxs)
-    sys_dmatrix_dict = sys_dmatrix.to_dict()
-    for k, v in sys_dmatrix_dict.items():
-        print(f"{k}\t{v:.4f}")
+    # convert density matrix into state vector
+    print(final_dmatrix.purity())
+    final_state = final_dmatrix.to_statevector(atol = 1e-2, rtol = 1e-2)
+    final_state_dict = final_state.to_dict()
+
+    # extract only states of the system corresponding to state |0...0> of ancillary qubtis
+    final_state_dict.update((k, v) for k, v in final_state_dict.items() if k[-n_anc:] == '0' * n_anc)
+
+    # normalize system final state
+    const = 0
+    for v in final_state_dict.values():
+        const += np.abs(v) ** 2
+
+    const = np.sqrt(const)
+    final_state_dict.update((k, v / const) for k, v in final_state_dict.items())
+
+    # print state
+    print("The final probability densities are")
+    for k, v in final_state_dict.items():
+        print(f"{k[::-1]}: {v:.4f}")
 
 if __name__ == "__main__":
     main()

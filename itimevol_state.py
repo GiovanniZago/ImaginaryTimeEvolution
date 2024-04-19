@@ -60,13 +60,12 @@ def main():
     ============================= Hyperparameters ===================================
     =================================================================================
     """
-    N            = 2 # no. of system qubits
-    M            = 1 # no. of time evolution steps
+    N            = 3 # no. of system qubits
+    M            = 3 # no. of time evolution steps
     n_anc        = 2 * M # no. of needed ancillary qubits
     t            = 1
-    num_shots    = 1_000_000
     lam          = 0.5
-    reps         = 10
+    reps         = 20
     device       = "GPU"
 
     show_hist    = False
@@ -130,7 +129,7 @@ def main():
 
     # print general info
     print("Qiskit Simulation")
-    print(f"N = {N}, M = {M}, t = {t}, lambda = {lam}, reps = {reps}, num_shots = {num_shots:,}, device = {device}")
+    print(f"N = {N}, M = {M}, t = {t}, lambda = {lam}, reps = {reps}, device = {device}")
 
 
 
@@ -151,20 +150,19 @@ def main():
     ============================= Circuit simulation ==================================
     ===================================================================================
     """
-    qc.measure_all()
+    qc.save_statevector()
 
     t_i = monotonic()
 
-    # aer_sim = AerSimulator(method='density_matrix', device=device)
     if device == "GPU":
         device_str = "_" + device.lower()
     else:
         device_str = ""
 
-    aer_sim = Aer.get_backend('aer_simulator_density_matrix' + f"{device_str}")
-    qc_tp   = transpile(qc, aer_sim)
-    aer_job = aer_sim.run(qc_tp, shots=num_shots)
-    counts  = aer_job.result().get_counts()
+    aer_sim = Aer.get_backend("aer_simulator_statevector" + f"{device_str}")
+    qc_tp = transpile(qc, backend=aer_sim)
+    result = aer_sim.run(qc_tp).result()
+    final_state_dict = result.get_statevector(qc_tp).to_dict()
 
     t_f = monotonic()
 
@@ -190,35 +188,29 @@ def main():
     ============================= and run stats   ===================================
     =================================================================================
     """
-    evo_state_dict = {}
-    for k, v in counts.items():
-        """ Notice that in the following if statement the search for the state |0...0> of
-            the ancillary qubits is performed starting from the right, because according 
-            to Quiskit convenction, qubits with lower indexes are the less significant ones, 
-            so they will be written from right to left.
-        """
+    final_state_sys_dict = {}
+    for k, v in final_state_dict.items():
         if k[-n_anc:] == '0' * n_anc: # check if the ancillary qubits are in the |0...0> state
             k_new = k[:N]
-            evo_state_dict[k_new] = v
+            final_state_sys_dict[k_new] = v
 
-    # calculate and print measurement statistics
-    valid_counts = sum(evo_state_dict.values())
-    print(f"Number of valid shots: {valid_counts:,}")
+    # normalize system final state
+    const = 0
+    for v in final_state_sys_dict.values():
+        const += np.abs(v) ** 2
 
-    eff = (valid_counts / num_shots) * 100 # calculate efficiency
-    print(f"Efficiency: {eff:.3f} %")
+    const = np.sqrt(const)
+    final_state_sys_dict.update((k, v / const) for k, v in final_state_sys_dict.items())
 
-    # print final state probabilities and generate plot
-    evo_state_dict.update((k, v / valid_counts) for k, v in evo_state_dict.items())
-    print("The final probability densities are")
-    for k, v in evo_state_dict.items():
+    # print state
+    print("The final state is")
+    for k, v in final_state_sys_dict.items():
         print(f"{k[::-1]}: {v:.4f}")
 
-    if show_hist:
-        plot_histogram(evo_state_dict)
-        plt.title(f"N = {N}, M = {M}, t = {t}, num_shots = {num_shots:,}, efficiency = {eff:.3f} %")
-        plt.show()
-
+    # print probabilities 
+    print("The final probability densities are")
+    for k, v in final_state_sys_dict.items():
+        print(f"{k[::-1]}: {np.abs(v) ** 2:.4f}")
 
 
 
