@@ -47,12 +47,16 @@ def get_fidelity(x, y):
     raise ValueError("Cannot calcolate fidelity if operator has dim > 2")
     
 
-
 def get_S(ham, tau):
     alfa_p = 0.5 * (-1 + 1j)
     alfa_m = 0.5 * (-1 + -1j)
     mat = alfa_m * spalg.expm(-1j * ham * tau) + alfa_p * spalg.expm(1j * ham * tau) + 2 * np.eye(ham.shape[0])
     return mat
+
+def get_trotter_S(ham, tau, m):
+    t = tau / m
+    # return np.linalg.matrix_power(get_S(ham, t), m)
+    return spalg.fractional_matrix_power(get_S(ham, t), m)
 
 
 def get_ite(ham, tau):
@@ -81,6 +85,10 @@ def get_energy(psi, ham):
 def get_ground_eigh(ham):
     eigvals, eigvect = np.linalg.eigh(ham)
     return eigvals[0], eigvect[:, 0]
+
+def get_matrix_norm(mat):
+    eig = np.linalg.eigvalsh(mat.conj().T @ mat)[-1]
+    return np.sqrt(eig)
 
 
 class ITEQCircuit:
