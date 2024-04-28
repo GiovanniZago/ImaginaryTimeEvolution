@@ -4,7 +4,7 @@ from qiskit import QuantumCircuit, QuantumRegister, transpile
 from qiskit.quantum_info import SparsePauliOp
 from qiskit.circuit.library import PauliEvolutionGate
 from qiskit.synthesis.evolution import LieTrotter
-from qiskit_aer import AerSimulator, Aer
+from qiskit_aer import Aer
 from qiskit.visualization import plot_histogram
 
 from time import monotonic
@@ -65,7 +65,7 @@ def main():
     n_anc        = 2 * M # no. of needed ancillary qubits
     t            = 1
     lam          = 0.5
-    reps         = 20
+    reps         = 10
     device       = "GPU"
 
     show_hist    = False
