@@ -2,9 +2,9 @@ import numpy as np
 from scipy.linalg import eigh, expm
 from qiskit import QuantumCircuit, QuantumRegister, transpile
 from qiskit.quantum_info import SparsePauliOp
-from qiskit.circuit.library import UnitaryGate
+from qiskit.circuit.library import PauliEvolutionGate
+from qiskit.synthesis.evolution import LieTrotter
 from qiskit_aer import Aer
-from qiskit.visualization import plot_histogram
 
 from time import monotonic
 
@@ -51,10 +51,8 @@ def get_random_H(N, bound):
     return H
 
 
-
-def get_itimevol_circuit(N, M, H, t, psi_0):
+def get_itimevol_circuit_ising(N, M, H, t, reps, psi_0):
     n_anc = 2 * M
-    
 
     anc_idxs = list(range(n_anc))
     sys_idxs = list(range(n_anc, n_anc + N))
@@ -68,19 +66,21 @@ def get_itimevol_circuit(N, M, H, t, psi_0):
     qc.initialize(psi_0, sys_idxs)
 
     for i in range(2 * M - 1, 0, -2): 
+        """ Start from the last couple of qubits (most significative ones)
+            and then go up until the least significative couple by steps 
+            of two qubits.
+        """
         # setup gates for ancillary qubits
         qc.ry(alpha, i - 1)
         qc.ry(beta, i)
         qc.cx(i - 1, i, ctrl_state = 0)
         qc.crz(gamma, control_qubit = i - 1, target_qubit = i)
 
-        U_1    = expm(1j * H * t / M)
-        U_1_op = UnitaryGate(U_1, label="U(-t/M)").control(1)
-        qc.append(U_1_op, [i - 1] + sys_idxs) # control on qubit i - 1 and act on the system qubits
+        evo = PauliEvolutionGate(H, -t / M, synthesis = LieTrotter(reps=reps)).control(1) # specify 1 control bit
+        qc.append(evo, [i - 1] + sys_idxs) # control on qubit i - 1 and act on the system qubits
 
-        U_2    = expm(-2j * H * t / M)
-        U_2_op = UnitaryGate(U_2, label="U(2t/M)").control(2)
-        qc.append(U_2_op, [i - 1, i] + sys_idxs) # control on qubits i - 1 and i and act on the system qubits
+        evo = PauliEvolutionGate(H, 2 * t / M, synthesis = LieTrotter(reps=reps)).control(2) # specify 2 control bit
+        qc.append(evo, [i - 1, i] + sys_idxs) # control on qubits i - 1 and i and act on the system qubits
 
     # setup measurement qubits
     qc.h(anc_idxs)
@@ -123,12 +123,13 @@ def main():
     M            = 8 # no. of time evolution steps
     n_anc        = 2 * M # no. of needed ancillary qubits
     t            = 1
-    bound        = 1
+    lam          = 1
+    reps         = 10
     device       = "GPU"
 
     # print general info
-    print("Statevector simulation with random Hamiltonian")
-    print(f"N = {N}, M = {M}, t = {t}, bound = {bound}, device = {device}")
+    print("Statevector simulation with Ising Hamiltonian")
+    print(f"N = {N}, M = {M}, t = {t}, lambda = {lam}, device = {device}")
     print("=============================================================")
 
 
@@ -147,7 +148,7 @@ def main():
     ================================================================================
     """
     # setup Hamiltonian
-    H = get_random_H(N, bound=bound)
+    H = get_hamilt_op(N, lam)
 
     evs, w = eigh(H)
     w      = w.T
@@ -163,14 +164,8 @@ def main():
 
     psi0 = np.ones(2 ** N)
     psi0 /= np.linalg.norm(psi0)
-
-    # generate circuit
-    # class RandH(library.ITEQCircuit):
-    #     @classmethod
-    #     def get_hamilt_op(cls, n: int, **kwargs):
-    #         return H
         
-    qc = get_itimevol_circuit(N, M, H, t, psi0)
+    qc = get_itimevol_circuit_ising(N, M, H, t, reps, psi0)
 
 
 
