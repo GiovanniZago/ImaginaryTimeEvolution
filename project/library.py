@@ -111,6 +111,8 @@ class ITEQCircuit:
             self.psi0 = np.array(psi0)
         elif not isinstance(psi0, np.ndarray):
             raise ValueError(f"Psi0 must be a numpy array or a list or a tuple, not {psi0.__class__.__name__}")
+        else:
+            self.psi0 = psi0
 
         self._create_circuit()
 
@@ -224,6 +226,8 @@ class ITEQCircuit:
         ite_qc = self.get_ite_circuit(N, M, dt=self.tau / M, trot_reps=self.trot_reps, ham_kwargs=self.ham_kwargs)
         qc.append(ite_qc, qr_anc[:] + qr_work[:])
         qc.h(qr_anc)
+        
+        # qc.save_unitary()
 
         qc.save_statevector("final")
         qc.measure(qr_anc, cr_anc)
