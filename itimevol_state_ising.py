@@ -103,7 +103,7 @@ def main():
 
 
     # compare final state with ground state
-    print("Ground state (Left) vs First excited state (Right)")
+    print(f"Ground state (Left) vs First excited state ({evs[1]}) (Right)")
     utils.compare_states(gs, w[1] / np.linalg.norm(w[1]))
 
 
