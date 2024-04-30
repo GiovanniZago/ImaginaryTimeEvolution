@@ -14,8 +14,8 @@ def main():
     ============================= Hyperparameters ===================================
     =================================================================================
     """
-    N            = 3 # no. of system qubits
-    M            = 4 # no. of time evolution steps
+    N            = 2 # no. of system qubits
+    M            = 2 # no. of time evolution steps
     n_anc        = 2 * M # no. of needed ancillary qubits
     t            = 1
     lam          = 0
