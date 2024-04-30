@@ -14,8 +14,8 @@ def main():
     ============================= Hyperparameters ===================================
     =================================================================================
     """
-    N            = 2 # no. of system qubits
-    M            = 8 # no. of time evolution steps
+    N            = 3 # no. of system qubits
+    M            = 4 # no. of time evolution steps
     n_anc        = 2 * M # no. of needed ancillary qubits
     t            = 1
     lam          = 0
@@ -39,14 +39,7 @@ def main():
     w      = w.T
     gs     = w[0] / np.linalg.norm(w[0]) # we need to normalize it because later we calculate eps
 
-    v_min = np.min(np.abs(evs))
-    v_max = np.max(np.abs(evs))
-    print(f"Smallest eigenvalue: {evs[0]:.5f}")
-    print(f"Biggest eigenvalue: {evs[-1]:.5f}")
-    print(f"Smallest eigenvalue in magnitude v_min = {v_min:.5f}")
-    print(f"Biggest eigenvalue in magnitude v_max = {v_max:.5f}")
-    print(f"v_min * t / M = {v_min * t / M:.5f}     (v_min * t / M) ^ 3 = {(v_min * t / M) ** 3:.5f}")
-    print(f"v_max * t / M = {v_max * t / M:.5f}     (v_max * t / M) ^ 3 = {(v_max * t / M) ** 3:.5f}")
+    print(f"Eigenvalues: {np.matrix(evs)}")
 
     psi0 = np.ones(2 ** N)
     psi0 /= np.linalg.norm(psi0)
@@ -97,18 +90,16 @@ def main():
     print("The initial state is")
     utils.print_state(psi0)
 
-    # compare final state with ground state
-    print("Final state (Left) vs Ground state (Right)")
-    utils.compare_states(final_state, gs)
+    # compare final state with another eigenvector
+    w_index = 0
+    print(f"Final state (Left) vs Eigenvector with index {w_index} (Right)")
+    utils.compare_states(final_state, w[w_index])
 
+    w_index = 1
+    print(f"Final state (Left) vs Eigenvector with index {w_index} (Right)")
+    utils.compare_states(final_state, w[w_index])
 
-    # compare final state with ground state
-    print(f"Ground state (Left) vs First excited state ({evs[1]}) (Right)")
-    utils.compare_states(gs, w[1] / np.linalg.norm(w[1]))
-
-
-    # print success probability
-    print(f"The success probability wrt the gs is {np.abs(np.vdot(gs, final_state)) ** 2:.5f}")
+    print(f"Final state energy: {np.vdot(final_state, np.dot(H.to_matrix(), final_state)):.5f}")
 
 if __name__ == "__main__":
     main()

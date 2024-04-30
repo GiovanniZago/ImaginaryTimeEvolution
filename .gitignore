@@ -143,3 +143,4 @@ cython_debug/
 /.vscode
 /*playground*
 /images
+/*test*
